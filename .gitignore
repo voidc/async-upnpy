@@ -1,0 +1,4 @@
+*.sock
+gui_example/gui
+gui_example/test
+__pycache__/
