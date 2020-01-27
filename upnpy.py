@@ -49,9 +49,24 @@ class UPnPy():
 
         self.loop.create_task(self.discover())
 
-    async def notify_listener(self, listener, device):
+    def add_remote_device(self, device):
+        unique = False
+        parts = device.usn.split('::', 1)
+        if parts[0] not in self.remote_devices:
+            self.remote_devices[parts[0]] = SSDPDevice(parts[0], device.location)
+            unique = True
+        if len(parts) == 2 and not any(sub.usn == device.usn for sub in self.remote_devices[parts[0]].subdevices):
+            self.remote_devices[parts[0]].subdevices.append(device)
+        return unique
+
+
+    async def notify_listener(self, listener, device, sub=False):
         try:
-            listener.write(f'DEVICE {device.usn}\n'.encode('utf-8'))
+            if not sub:
+                listener.write(f'DEVICE {device.usn}\n'.encode('utf-8'))
+            else:
+                listener.write(f'SUBDEVICE {device.usn}\n'.encode('utf-8'))
+            
             if device.location:
                 (desc, icon) = await self.get_desc_and_icon(device.location)
             else:
@@ -72,6 +87,9 @@ class UPnPy():
                 # b64 so we can terminate line with \n
                 listener.write(base64.b64encode(icon) + b'\n')
 
+            for subdevice in device.subdevices:
+                await self.notify_listener(listener, subdevice, sub=True)
+
             await listener.drain()
 
         except ConnectionResetError:
@@ -85,13 +103,12 @@ class UPnPy():
         if not device.usn:
             return
 
-        if device.usn in self.remote_devices:
+        if not self.add_remote_device(device):
             logger.info("Found duplicate device %s", device.usn)
             return
 
         logger.info("Found new device %s", device.usn)
         logger.debug(pformat(device.__dict__))
-        self.remote_devices[device.usn] = device
 
         async def coro():
             if device.location:

@@ -12,7 +12,7 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
 static GtkWidget *window;
-static GtkListStore *device_store;
+static GtkTreeStore *device_store;
 static GtkWidget *details_view;
 static GtkWidget *image;
 
@@ -62,11 +62,11 @@ gboolean network_read(GIOChannel *source, GIOCondition cond, gpointer data) {
     GError *error = NULL;
     GIOStatus ret;
 
-    static GtkTreeIter device_iter;
+    static GtkTreeIter device_iter, parent_iter;
     static GtkListStore *details_store;
     static enum read_state state = READ_DEVICE;
 
-    GtkTreeIter iter;
+    GtkTreeIter details_iter;
     gchar *pos = NULL;
     GdkPixbuf *pixbuf;
 
@@ -81,19 +81,24 @@ gboolean network_read(GIOChannel *source, GIOCondition cond, gpointer data) {
 
     if (strncmp(line->str, "DEVICE ", 7) == 0) {
         details_store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
-        gtk_list_store_append(device_store, &device_iter);
-        gtk_list_store_set(device_store, &device_iter, 0, line->str + 7, 1, details_store, 2, NULL, -1);
+        gtk_tree_store_append(device_store, &device_iter, NULL);
+        gtk_tree_store_set(device_store, &device_iter, 0, line->str + 7, 1, details_store, 2, NULL, -1);
+        parent_iter = device_iter;
+    } else if (strncmp(line->str, "SUBDEVICE ", 10) == 0) {
+        details_store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
+        gtk_tree_store_append(device_store, &device_iter, &parent_iter);
+        gtk_tree_store_set(device_store, &device_iter, 0, line->str + 10, 1, details_store, 2, NULL, -1);
     } else if (strncmp(line->str, "META ", 5) == 0) {
         state = READ_META;
     } else if (strncmp(line->str, "ICON ", 5) == 0) {
         state = READ_ICON;
     } else if (state == READ_META && (pos = strchr(line->str, ':')) != NULL) {
         *pos = '\0';
-        gtk_list_store_append(details_store, &iter);
-        gtk_list_store_set(details_store, &iter, 0, line->str, 1, pos + 1, -1);
+        gtk_list_store_append(details_store, &details_iter);
+        gtk_list_store_set(details_store, &details_iter, 0, line->str, 1, pos + 1, -1);
     } else if (state == READ_ICON) {
         pixbuf = read_image(line->str);
-        gtk_list_store_set(device_store, &device_iter, 2, pixbuf, -1);
+        gtk_tree_store_set(device_store, &device_iter, 2, pixbuf, -1);
     }
 
     return TRUE;
@@ -131,7 +136,7 @@ void create_window() {
     gtk_widget_set_size_request(scrolled_window, 150, -1);
     gtk_container_add(GTK_CONTAINER(frame), scrolled_window);
 
-    device_store = gtk_list_store_new(3, G_TYPE_STRING, GTK_TYPE_LIST_STORE, GDK_TYPE_PIXBUF);
+    device_store = gtk_tree_store_new(3, G_TYPE_STRING, GTK_TYPE_LIST_STORE, GDK_TYPE_PIXBUF);
     tree_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(device_store));
     renderer = gtk_cell_renderer_text_new();
     column = gtk_tree_view_column_new_with_attributes("Device", renderer, "text", 0, NULL);

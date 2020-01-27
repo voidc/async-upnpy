@@ -19,6 +19,7 @@ class SSDPDevice():
         self.location = location
 
         self.extra = None
+        self.subdevices = []
 
     def uuid(self):
         try:
