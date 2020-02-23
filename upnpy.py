@@ -73,8 +73,6 @@ class UPnPy():
             
             if device.location:
                 (desc, icon) = await self.get_desc_and_icon(device.location)
-            else:
-                (desc, icon) = self.get_desc_and_icon_from_extra(device.extra)
 
             if desc is None:
                 return
@@ -117,8 +115,6 @@ class UPnPy():
         async def coro():
             if device.location:
                 (desc, icon) = await self.get_desc_and_icon(device.location)
-            else:
-                (desc, icon) = self.get_desc_and_icon_from_extra(device.extra)
 
             if desc is not None:
                 logger.info("Found metadata for %s", device.usn)
@@ -130,13 +126,6 @@ class UPnPy():
                 await self.notify_listener(listener, device)
 
         self.loop.create_task(coro())
-
-    def get_desc_and_icon_from_extra(self, extra):
-        icon = None
-        if extra and 'icon' in extra:
-            icon = base64.b64decode(extra['icon'])
-            extra = {k: extra[k] for k in extra if k != 'icon'}
-        return (extra, icon)
 
     async def get_desc_and_icon(self, location):
         if location in self.desc_cache:

@@ -18,7 +18,6 @@ class SSDPDevice():
         self.usn = usn
         self.location = location
 
-        self.extra = None
         self.subdevices = []
 
     def uuid(self):
@@ -84,8 +83,6 @@ class SimpleServiceDiscoveryProtocol(asyncio.DatagramProtocol):
             "\r\n"
         ).format(loc=device.location, nt=device.target(), nts=notify_type,
             usn=device.usn)
-        # data += "".join(f"{k}: {v}\r\n" for k, v in device.extra.items())
-        # data += "\r\n"
 
         addr = (MULTICAST_ADDRESS, MULTICAST_PORT)
         self.send(data, addr)
@@ -113,8 +110,6 @@ class SimpleServiceDiscoveryProtocol(asyncio.DatagramProtocol):
             "USN: {usn}\r\n"
             "\r\n"
         ).format(loc=device.location, st=search_target, usn=device.usn)
-        # data += "".join(f"{k}: {v}\r\n" for k, v in device.extra.items())
-        # data += "\r\n"
 
         self.send(data, addr)
 
@@ -144,7 +139,6 @@ class SimpleServiceDiscoveryProtocol(asyncio.DatagramProtocol):
         usn = data.get('usn')
         root_desc = data.get('location')
         device = SSDPDevice(usn, root_desc)
-        device.extra = {k[2:]: data[k] for k in data if k.startswith('x-')}
         
         if not self.filter or device.matches_target(self.filter):
             if nts == 'ssdp:alive':
@@ -167,7 +161,6 @@ class SimpleServiceDiscoveryProtocol(asyncio.DatagramProtocol):
         usn = data.get('usn')
         root_desc = data.get('location')
         device = SSDPDevice(usn, root_desc)
-        device.extra = {k[2:]: data[k] for k in data if k.startswith('x-')}
         if not self.filter or device.matches_target(self.filter):
             self.device_callback(device)
 
