@@ -189,16 +189,16 @@ int init_channel(char *sock_path) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "No socket path specified.\n");
-        return EXIT_FAILURE;
+    char *sock_path = "/tmp/upnpy.sock";
+    if (argc >= 2) {
+        sock_path = argv[1];
     }
 
     gtk_init(&argc, &argv);
     create_window();
     gtk_widget_show_all(window);
 
-    if (init_channel(argv[1]) < 0) {
+    if (init_channel(sock_path) < 0) {
         return EXIT_FAILURE;
     }
 

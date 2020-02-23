@@ -6,6 +6,7 @@ from pprint import pprint, pformat
 import socket
 import struct
 import sys
+import tempfile
 import urllib.parse
 import uuid
 
@@ -31,6 +32,7 @@ class UPnPy():
         self.filter = None
 
     async def run_unix_socket(self, path):
+        logger.info("Creating unix socket at %s", path)
         server = await asyncio.start_unix_server(
             self.on_listener_connected, path)
         try:
@@ -229,12 +231,12 @@ class UPnPy():
 
 class UPnPDevice():
 
-    def __init__(self, host, port, uuid):
+    def __init__(self, host, port, uuid, type, name):
         self.host = host
         self.port = port
         self.uuid = uuid
-        self.type = 'Basic:1'
-        self.name = 'Friendly Device'
+        self.type = type
+        self.name = name
         self.icon = None
 
     def to_ssdp(self):
@@ -242,7 +244,7 @@ class UPnPDevice():
         usns = [
             f'uuid:{self.uuid}::upnp:rootdevice',
             f'uuid:{self.uuid}',
-            f'uuid:{self.uuid}::urn:schemas-upnp-org:device:{self.type}',
+            f'uuid:{self.uuid}::{self.type}',
         ]
 
         return [SSDPDevice(usn, location) for usn in usns]
@@ -253,6 +255,12 @@ async def main():
     upnpy = UPnPy(loop)
 
     async def discover(args):
+        if args.filter and ':' not in args.filter:
+            if args.filter == 'root':
+                args.filter = 'upnp:rootdevice'
+            else:
+                args.filter = f"urn:schemas-upnp-org:device:{args.filter}:1"
+        
         upnpy.filter = args.filter
         upnpy.wait = args.wait
 
@@ -268,7 +276,12 @@ async def main():
     async def announce(args):
         # TODO might return 171.0.0.1
         host = socket.gethostbyname(socket.gethostname())
-        device = UPnPDevice(host, args.port, uuid.uuid4())
+        device = UPnPDevice(
+            host, args.port,
+            uuid.uuid4(),
+            f"urn:schemas-upnp-org:device:{args.type}:1",
+            args.name,
+        )
 
         if args.name:
             device.name = args.name
@@ -294,15 +307,17 @@ async def main():
                                  help='If not specified, "ssdp:all" will be used as search target.')
     parser_discover.add_argument('--wait', type=int, default=6,
                                  help='Seconds to wait for responses after search.')
-    parser_discover.add_argument('--sock',
+    parser_discover.add_argument('--sock', nargs='?', const=tempfile.gettempdir() + '/upnpy.sock',
                                  help='If specified, creates a unix socket at the given path, to which listeners can connect.')
     parser_discover.add_argument('--no-deamon', action='store_true',
                                  help='Disables listening for NOTIFY messages. Thus only a foreground search will be performed.')
     parser_discover.set_defaults(func=discover)
 
     parser_announce = subparsers.add_parser('announce', help='Device mode.')
-    parser_announce.add_argument('--name',
+    parser_announce.add_argument('--name', default='Basic Device',
                                  help='Friendly name of the device.')
+    parser_announce.add_argument('--type', default='Basic',
+                                 help='Device type')
     parser_announce.add_argument('--icon', type=argparse.FileType('rb'),
                                  help='Path to a PNG image to use as icon.')
     parser_announce.add_argument('--port', type=int, default=1999,

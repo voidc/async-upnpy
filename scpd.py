@@ -17,7 +17,7 @@ ROOT_DESC_TEMPLATE = """
     </specVersion>
     <URLBase>http://{host}:{port}</URLBase>
     <device>
-        <deviceType>urn:schemas-upnp-org:device:{device_type}</deviceType>
+        <deviceType>{device_type}</deviceType>
         <friendlyName>{friendly_name}</friendlyName>
         <UDN>uuid:{uuid}</UDN>
         <UPC/>
