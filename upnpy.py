@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import base64
 import logging
+import os
 from pprint import pprint, pformat
 import socket
 import struct
@@ -40,6 +41,7 @@ class UPnPy():
                 await server.serve_forever()
         finally:
             server.close()
+            os.remove(path)
 
     async def on_listener_connected(self, reader, writer):
         logger.info("Listener connected")
