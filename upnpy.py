@@ -283,9 +283,6 @@ async def main():
             args.name,
         )
 
-        if args.name:
-            device.name = args.name
-
         if args.icon:
             device.icon = args.icon.read()
             args.icon.close()
