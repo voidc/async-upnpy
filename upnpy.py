@@ -222,6 +222,8 @@ class UPnPy():
         try:
             await on_con_lost
         finally:
+            for device in announce_devices:
+                protocol.remove_device(device)
             transport.close()
 
     async def serve_metadata(self, device):

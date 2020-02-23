@@ -52,7 +52,11 @@ class SimpleServiceDiscoveryProtocol(asyncio.DatagramProtocol):
 
     def announce_device(self, device):
         self.local_devices.append(device)
-        self.send_notify(device)
+        self.send_notify(device, notify_type='ssdp:alive')
+
+    def remove_device(self, device):
+        self.local_devices.remove(device)
+        self.send_notify(device, notify_type='ssdp:byebye')
 
     def search_devices(self):
         if self.filter is None:
@@ -67,18 +71,19 @@ class SimpleServiceDiscoveryProtocol(asyncio.DatagramProtocol):
         logger.debug("%s:%s < \"%s\"", *(addr + (data,)))
         self.transport.sendto(data.encode('utf-8'), addr)
 
-    def send_notify(self, device):
+    def send_notify(self, device, notify_type='ssdp:alive'):
         data = (
             "NOTIFY * HTTP/1.1\r\n"
             "HOST: 239.255.255.250:1900\r\n"
             "CACHE-CONTROL: max-age=3600\r\n"
             "LOCATION: {loc}\r\n"
             "NT: {nt}\r\n"
-            "NTS: ssdp:alive\r\n"  # TODO send ssdp:byebye
+            "NTS: {nts}\r\n"
             "SERVER: 'Linux UPnP/1.0 upnpy/0.1'\r\n"
             "USN: {usn}\r\n"
             "\r\n"
-        ).format(loc=device.location, nt=device.target(), usn=device.usn)
+        ).format(loc=device.location, nt=device.target(), nts=notify_type,
+            usn=device.usn)
         # data += "".join(f"{k}: {v}\r\n" for k, v in device.extra.items())
         # data += "\r\n"
 
@@ -134,13 +139,19 @@ class SimpleServiceDiscoveryProtocol(asyncio.DatagramProtocol):
 
     def handle_notify(self, data, addr):
         logger.debug("NOTIFY")
+        nts = data.get('nts')
+
         usn = data.get('usn')
         root_desc = data.get('location')
-        # nts = data.get('nts')  # TODO handle ssdp:byebye
         device = SSDPDevice(usn, root_desc)
         device.extra = {k[2:]: data[k] for k in data if k.startswith('x-')}
+        
         if not self.filter or device.matches_target(self.filter):
-            self.device_callback(device)
+            if nts == 'ssdp:alive':
+                self.device_callback(device)
+            else:
+                # TODO implement ssdp:byebye
+                logger.info("Notify byebye %s", device.usn)
 
     def handle_search(self, data, addr):
         logger.debug("SEARCH")
