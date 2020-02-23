@@ -3,7 +3,7 @@ CC=gcc
 GTK3_CFLAGS=$(shell pkg-config --cflags gtk+-3.0)
 GTK3_LIBS=$(shell pkg-config --libs gtk+-3.0)
 
-CFLAGS=-m32 -I.
+CFLAGS=-I.
 LIBS=
 
 all: gui
